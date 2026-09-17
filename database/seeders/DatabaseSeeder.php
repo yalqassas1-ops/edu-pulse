@@ -14,6 +14,9 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        // استدعاء ملف الـ Admin لإنشاء حساب الأدمين
+        $this->call(AdminUserSeeder::class);
+
         $category = Category::create(['name' => 'برمجة وتطوير', 'description' => 'دورات البرمجة']);
         
         $teacher = Teacher::create([
