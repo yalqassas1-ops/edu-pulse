@@ -14,9 +14,12 @@ WORKDIR /var/www
 
 COPY . .
 
-# Run build script
-RUN chmod +x build.sh && ./build.sh
+# Environment setup & build
+ENV NODE_ENV=production
+RUN composer install --no-dev --optimize-autoloader
+RUN npm install
+RUN npm run build || true
 
 EXPOSE 8000
 
-CMD php artisan serve --host=0.0.0.0 --port=8000
+CMD php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8000
