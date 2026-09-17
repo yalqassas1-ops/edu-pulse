@@ -17,46 +17,72 @@
         <div class="card card-custom p-4">
             <h4 class="fw-bold mb-4 text-dark"><i class="fa-solid fa-plus text-primary me-2"></i> إضافة دورة تدريبية جديدة</h4>
 
-            <form action="{{ route('courses.store') }}" method="POST">
+            <!-- 👈 إضافة enctype="multipart/form-data" بالسماح برفع الملفات -->
+            <form action="{{ route('courses.store') }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 
                 <div class="mb-3">
                     <label for="title" class="form-label fw-semibold">عنوان الدورة <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="title" name="title" placeholder="مثال: دورة الذكاء الاصطناعي" required>
+                    <input type="text" class="form-control @error('title') is-invalid @enderror" id="title" name="title" value="{{ old('title') }}" placeholder="مثال: دورة الذكاء الاصطناعي" required>
+                    @error('title')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
                 </div>
 
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label for="category_id" class="form-label fw-semibold">التصنيف <span class="text-danger">*</span></label>
-                        <select class="form-select no-nice-select" id="category_id" name="category_id" required>
+                        <select class="form-select no-nice-select @error('category_id') is-invalid @enderror" id="category_id" name="category_id" required>
                             <option value="" selected disabled>-- اختر التصنيف --</option>
                             @foreach($categories as $category)
-                                <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                <option value="{{ $category->id }}" {{ old('category_id') == $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
                             @endforeach
                         </select>
+                        @error('category_id')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
                     </div>
 
                     <div class="col-md-6 mb-3">
                         <label for="teacher_id" class="form-label fw-semibold">المحاضر المسئول</label>
-                        <select class="form-select no-nice-select" id="teacher_id" name="teacher_id">
+                        <select class="form-select no-nice-select @error('teacher_id') is-invalid @enderror" id="teacher_id" name="teacher_id">
                             <option value="" selected>-- بدون محاضر --</option>
                             @foreach($teachers as $teacher)
-                                <option value="{{ $teacher->id }}">{{ $teacher->name }} ({{ $teacher->specialization }})</option>
+                                <option value="{{ $teacher->id }}" {{ old('teacher_id') == $teacher->id ? 'selected' : '' }}>{{ $teacher->name }} ({{ $teacher->specialization }})</option>
                             @endforeach
                         </select>
+                        @error('teacher_id')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label for="price" class="form-label fw-semibold">السعر ($) <span class="text-danger">*</span></label>
-                        <input type="number" step="0.01" class="form-control" id="price" name="price" placeholder="150" required>
+                        <input type="number" step="0.01" class="form-control @error('price') is-invalid @enderror" id="price" name="price" value="{{ old('price') }}" placeholder="150" required>
+                        @error('price')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
                     </div>
 
                     <div class="col-md-6 mb-3">
                         <label for="total_hours" class="form-label fw-semibold">عدد الساعات <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control" id="total_hours" name="total_hours" placeholder="40" required>
+                        <input type="number" class="form-control @error('total_hours') is-invalid @enderror" id="total_hours" name="total_hours" value="{{ old('total_hours') }}" placeholder="40" required>
+                        @error('total_hours')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
                     </div>
+                </div>
+
+                <!-- 👈 حقل رفع الصورة أو ملف الـ PDF جديد -->
+                <div class="mb-4">
+                    <label for="avatar" class="form-label fw-semibold">صورة / مرفق الدورة (صورة أو PDF)</label>
+                    <input type="file" class="form-control @error('avatar') is-invalid @enderror" id="avatar" name="avatar" accept="image/*,.pdf">
+                    <div class="form-text text-muted">الأنواع المسموحة: (JPG, PNG, JPEG, PDF) - الحد الأقصى: 2 ميجابايت.</div>
+                    @error('avatar')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
                 </div>
 
                 <div class="d-flex justify-content-between mt-3">

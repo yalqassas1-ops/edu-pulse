@@ -4,8 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>إدارة الحضور والغياب - EduPulse</title>
+
+    <!-- Bootstrap RTL CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- ⚡ استدعاء مكتبات Vite الخاصة بـ Reverb و Echo لاستقبال الإشعارات اللحظية -->
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+
     <style>
         body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
@@ -26,11 +33,11 @@
                 </div>
                 <div class="d-flex gap-2">
                     <!-- زر الانتقال لصفحة التقرير الشامل -->
-                    <a href="{{ route('attendances.report', ['course_class_id' => $selectedClassId]) }}" class="btn btn-outline-primary btn-custom">
+                    <a href="{{ route('attendances.report', ['course_class_id' => $selectedClassId]) }}" class="btn btn-outline-primary btn-custom shadow-sm">
                         <i class="fa-solid fa-chart-pie me-1"></i> التقرير الشامل
                     </a>
 
-                    <a href="{{ route('dashboard') }}" class="btn btn-outline-secondary btn-custom">
+                    <a href="{{ route('dashboard') }}" class="btn btn-outline-secondary btn-custom shadow-sm">
                         <i class="fa-solid fa-gauge me-1"></i> لوحة التحكم
                     </a>
                 </div>
@@ -85,7 +92,7 @@
 
         <!-- Attendance Recording Table -->
         @if($selectedClassId)
-            <div class="card card-custom overflow-hidden">
+            <div class="card card-custom overflow-hidden mb-4">
                 <div class="card-header bg-white py-3 border-0">
                     <h5 class="fw-bold mb-0 text-dark">
                         <i class="fa-solid fa-users text-secondary me-2"></i> قائمة الطلاب (تاريخ: {{ $selectedDate }})
@@ -101,9 +108,9 @@
                         <table class="table table-hover align-middle text-center mb-0">
                             <thead class="table-dark">
                                 <tr>
-                                    <th>#</th>
-                                    <th class="text-start">اسم الطالب</th>
-                                    <th>حالة الحضور</th>
+                                    <th class="py-3">#</th>
+                                    <th class="py-3 text-start">اسم الطالب</th>
+                                    <th class="py-3">حالة الحضور</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -147,7 +154,7 @@
 
                     @if(count($students) > 0)
                         <div class="p-3 bg-light d-flex justify-content-end border-top">
-                            <button type="submit" class="btn btn-success btn-custom">
+                            <button type="submit" class="btn btn-success btn-custom shadow-sm">
                                 <i class="fa-solid fa-floppy-disk me-1"></i> حفظ الحضور والغياب
                             </button>
                         </div>
@@ -157,6 +164,77 @@
         @endif
     </div>
 
+    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Real-Time Notifications Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // 1. إظهار التنبيه الخاطف عند تحويل الجلسة بنجاح
+            @if(session('success'))
+                showToastNotification('عملية ناجحة', "{{ session('success') }}");
+            @endif
+
+            // 2. الاستماع اللحظي عبر Laravel Echo & Reverb
+            const userId = "{{ auth()->id() }}";
+
+            if (userId && typeof window.Echo !== 'undefined') {
+                window.Echo.private(`App.Models.User.${userId}`)
+                    .notification((notification) => {
+                        console.log('🔔 تم استقبال إشعار لحظي:', notification);
+
+                        const title = notification.title || (notification.data && notification.data.title) || 'تحديث الحضور';
+                        const message = notification.message || (notification.data && notification.data.message) || 'تم تسجيل حالة الحضور والغياب بنجاح';
+
+                        showToastNotification(title, message);
+                    });
+            }
+        });
+
+        // دالة إنشاء نافذة الإشعار (Toast Pop-up)
+        function showToastNotification(title, message) {
+            const oldToast = document.getElementById('realtime-toast');
+            if (oldToast) oldToast.remove();
+
+            const toast = document.createElement('div');
+            toast.id = 'realtime-toast';
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 25px;
+                left: 25px;
+                background-color: #0f172a;
+                color: #ffffff;
+                padding: 15px 20px;
+                border-radius: 10px;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+                z-index: 999999;
+                border-right: 5px solid #2563eb;
+                direction: rtl;
+                font-family: inherit;
+                min-width: 290px;
+                max-width: 400px;
+                transition: all 0.4s ease;
+            `;
+
+            toast.innerHTML = `
+                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                    <span style="font-size: 20px; line-height: 1;">📋</span>
+                    <div style="flex-grow: 1;">
+                        <strong style="font-size: 14px; display: block; color: #ffffff; margin-bottom: 2px;">${title}</strong>
+                        <span style="font-size: 13px; color: #cbd5e1; display: block; line-height: 1.4;">${message}</span>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(10px)';
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+    </script>
 </body>
 </html>

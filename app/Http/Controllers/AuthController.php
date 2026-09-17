@@ -2,131 +2,113 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log; // 1. استدعاء الـ Log
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Exception;
+use App\Notifications\LoginSuccessNotification;
 
 class AuthController extends Controller
 {
-    // 1. تسجيل حساب جديد (Register)
-    public function register(Request $request)
+    /**
+     * عرض صفحة تسجيل دخول مدير النظام
+     */
+    public function showLoginForm()
     {
-        // المرحلة الأولى: استخدام try ... catch لمعالجة الأخطاء والتسجيل المباشر
-        try {
-            $validated = $request->validate([
-                'name' => 'required|string|max:255',
-                'email' => 'required|string|email|max:255|unique:users',
-                'password' => 'required|string|min:8',
-            ]);
-
-            $user = User::create([
-                'name' => $validated['name'],
-                'email' => $validated['email'],
-                'password' => Hash::make($validated['password']),
-            ]);
-
-            $token = $user->createToken('auth_token')->plainTextToken;
-
-            // المرحلة الأولى: عند النجاح سجل INFO
-            Log::info('User registered successfully', [
-                'user_id' => $user->id,
-                'email' => $user->email
-            ]);
-
-            return response()->json([
-                'message' => 'User registered successfully',
-                'user' => $user,
-                'access_token' => $token,
-                'token_type' => 'Bearer',
-            ], 201);
-
-        } catch (ValidationException $e) {
-            throw $e; // نترك خطأ التحقق للارفيل كالعادة
-        } catch (Exception $e) {
-            // المرحلة الأولى: عند الفشل سجل ERROR
-            Log::error('Registration failed', [
-                'error' => $e->getMessage(),
-                'user_id' => null
-            ]);
-
-            return response()->json(['message' => 'Server error'], 500);
-        }
+        return view('auth.login');
     }
 
-    // 2. تسجيل الدخول (Login)
+    /**
+     * معالجة بيانات تسجيل الدخول
+     */
     public function login(Request $request)
     {
+        // 1. التحقق من صحة المدخلات
+        $credentials = $request->validate([
+            'email'    => ['required', 'email'],
+            'password' => ['required'],
+        ], [
+            'email.required'    => 'الرجاء إدخال البريد الإلكتروني.',
+            'email.email'       => 'صيغة البريد الإلكتروني غير صحيحة.',
+            'password.required' => 'الرجاء إدخال كلمة المرور.',
+        ]);
+
         try {
-            $request->validate([
-                'email' => 'required|email',
-                'password' => 'required',
-            ]);
+            // 2. محاولة تسجيل الدخول
+            if (Auth::attempt($credentials, $request->boolean('remember'))) {
+                // إعادة إنشاء الـ Session للحماية من ثغرات Session Fixation
+                $request->session()->regenerate();
 
-            $user = User::where('email', $request->email)->first();
-
-            // المرحلة الثانية: التحقق من كلمة السر والتسجيل كـ WARNING عند الخطأ
-            if (! $user || ! Hash::check($request->password, $user->password)) {
-
-                // تنبيه أمني: نسجل الـ Email والـ IP فقط (بدون كلمة السر)
-                Log::warning('Failed login attempt', [
-                    'email' => $request->email,
-                    'ip' => $request->ip()
+                // 🟢 تسجيل نجاح عملية الدخول (INFO Log)
+                Log::info('تم تسجيل الدخول بنجاح', [
+                    'user_id' => Auth::id(),
+                    'email'   => $request->email,
+                    'ip'      => $request->ip(),
                 ]);
 
-                throw ValidationException::withMessages([
-                    'email' => ['بيانات الدخول غير صحيحة.'],
-                ]);
+                // 📧 حماية إرسال الإشعار والـ Broadcasting حتى لا ينهار النظام عند فشل خادم البث
+                try {
+                    $user = Auth::user();
+                    $time = now()->format('Y-m-d H:i:s');
+                    $ip   = $request->ip();
+
+                    // إرسال إشعار الدخول بنجاح
+                    $user->notify(new LoginSuccessNotification($time, $ip));
+                } catch (Exception $notificationException) {
+                    // تسجيل فشل البث/البريد في الـ Log دون منع المستخدم من الدخول
+                    Log::error('فشل في إرسال إشعار تسجيل الدخول عبر البث/البريد', [
+                        'user_id' => Auth::id(),
+                        'error'   => $notificationException->getMessage()
+                    ]);
+                }
+
+                // التوجيه إلى لوحة التحكم الرئيسية
+                return redirect()->intended('/dashboard');
             }
 
-            // حذف التوكنات القديمة وتوليد توكن جديد
-            $user->tokens()->delete();
-            $token = $user->createToken('auth_token')->plainTextToken;
-
-            // المرحلة الأولى: عند نجاح الدخول نسجل INFO
-            Log::info('User logged in successfully', [
-                'user_id' => $user->id,
-                'email' => $user->email
+            // 🟡 تتبع محاولات الاختراق - كلمة سر خاطئة (Security WARNING Log)
+            Log::warning('محاولة تسجيل دخول فاشلة - كلمة سر خاطئة', [
+                'email' => $request->email,
+                'ip'    => $request->ip(),
             ]);
 
-            return response()->json([
-                'message' => 'Login successful',
-                'user' => $user,
-                'access_token' => $token,
-                'token_type' => 'Bearer',
-            ], 200);
+            // 3. في حال فشل بيانات الدخول
+            return back()->withErrors([
+                'email' => 'بيانات الدخول غير صحيحة، يرجى التأكد من البريد وكلمة المرور.',
+            ])->onlyInput('email');
 
-        } catch (ValidationException $e) {
-            throw $e;
         } catch (Exception $e) {
-            // المرحلة الأولى: عند حدوث أي استثناء أو خطأ سيرفر نسجل ERROR
-            Log::error('Login process encountered an error', [
-                'error' => $e->getMessage(),
-                'user_id' => null
+            // 🔴 تسجيل وقوع خطأ غير متوقع بالنظام (ERROR Log)
+            Log::error('حدث خطأ غير متوقع أثناء عملية تسجيل الدخول', [
+                'error_message' => $e->getMessage(),
+                'user_id'       => Auth::id() ?? null,
+                'ip'            => $request->ip(),
             ]);
 
-            return response()->json(['message' => 'Server error'], 500);
+            return back()->withErrors([
+                'email' => 'حدث خطأ غير متوقع في النظام، يرجى المحاولة لاحقاً.',
+            ])->onlyInput('email');
         }
     }
 
-    // 3. تسجيل الخروج (Logout)
+    /**
+     * تسجيل الخروج
+     */
     public function logout(Request $request)
     {
-        $user = $request->user();
-        $user->currentAccessToken()->delete();
+        // تسجيل عملية الخروج لأغراض المتابعة بالأمان
+        if (Auth::check()) {
+            Log::info('تم تسجيل الخروج', [
+                'user_id' => Auth::id(),
+                'ip'      => $request->ip(),
+            ]);
+        }
 
-        Log::info('User logged out', ['user_id' => $user->id]);
+        Auth::logout();
 
-        return response()->json([
-            'message' => 'Logged out successfully'
-        ], 200);
-    }
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
-    // 4. جلب بيانات المستخدم الحالي (Profile)
-    public function me(Request $request)
-    {
-        return response()->json($request->user(), 200);
+        return redirect('/login');
     }
 }

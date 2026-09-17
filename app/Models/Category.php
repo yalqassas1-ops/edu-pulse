@@ -2,12 +2,22 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Category extends Model
 {
-    protected $fillable = ['name', 'description'];
+    use HasFactory, SoftDeletes;
 
+    protected $fillable = [
+        'name',
+        'description',
+    ];
+
+    /**
+     * العلاقة مع الدورات التدريبية
+     */
     public function courses()
     {
         return $this->hasMany(Course::class);

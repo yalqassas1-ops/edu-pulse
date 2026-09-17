@@ -6,6 +6,9 @@
     <title>إدارة المدفوعات والأقساط - EduPulse</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+
     <style>
         body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
@@ -16,21 +19,27 @@
 <body class="p-3 p-md-5">
 
     <div class="container-fluid">
-        <!-- Header -->
+        <!-- Header Card -->
         <div class="card card-custom p-4 mb-4">
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
                 <div>
                     <h3 class="fw-bold mb-1 text-dark">
-                        سجل المدفوعات والأقساط <i class="fa-solid fa-receipt text-success ms-2"></i>
+                        إدارة المدفوعات والأقساط <i class="fa-solid fa-receipt text-success ms-2"></i>
                     </h3>
                     <p class="text-muted mb-0 small">متابعة دفعات الطلاب ورسوم الدورات وإصدار السندات</p>
                 </div>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-success btn-custom" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+                <!-- ترتيب الأزرار ليكون مطابقاً لصفحة الدورات -->
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-success btn-custom shadow-sm" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
                         <i class="fa-solid fa-plus me-1"></i> تسجيل دفعة جديدة
                     </button>
-                    <a href="{{ route('dashboard') }}" class="btn btn-outline-secondary btn-custom">
-                        <i class="fa-solid fa-gauge me-1"></i> لوحة التحكم
+
+                    <a href="{{ route('payments.archive') }}" class="btn btn-warning btn-custom shadow-sm text-dark">
+                        <i class="fa-solid fa-box-archive me-1"></i> أرشيف المدفوعات
+                    </a>
+
+                    <a href="{{ route('dashboard') }}" class="btn btn-outline-secondary btn-custom shadow-sm">
+                        <i class="fa-solid fa-scale-balanced me-1"></i> لوحة التحكم
                     </a>
                 </div>
             </div>
@@ -91,14 +100,14 @@
                 <table class="table table-hover align-middle text-center mb-0">
                     <thead class="table-dark">
                         <tr>
-                            <th>رقم السند</th>
-                            <th class="text-start">اسم الطالب</th>
-                            <th>الشعبة / الدورة</th>
-                            <th>المبلغ المدفوع</th>
-                            <th>المبلغ المتبقي</th>
-                            <th>التاريخ</th>
-                            <th>طريقة الدفع</th>
-                            <th>إجراءات</th>
+                            <th class="py-3">رقم السند</th>
+                            <th class="py-3 text-start">اسم الطالب</th>
+                            <th class="py-3">الشعبة / الدورة</th>
+                            <th class="py-3">المبلغ المدفوع</th>
+                            <th class="py-3">المبلغ المتبقي</th>
+                            <th class="py-3">التاريخ</th>
+                            <th class="py-3">طريقة الدفع</th>
+                            <th class="py-3">إجراءات</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -107,7 +116,6 @@
                                 <td class="fw-bold text-secondary">#{{ $payment->receipt_number ?? $payment->id }}</td>
                                 <td class="text-start fw-bold text-dark">{{ $payment->student->name ?? 'غير محدد' }}</td>
                                 
-                                <!-- إظهار اسم الدورة أولاً ثم رقم الشعبة بتنسيق صحيح -->
                                 <td>
                                     @if($payment->courseClass)
                                         <div class="d-inline-flex align-items-center gap-1">
@@ -121,7 +129,6 @@
 
                                 <td class="fw-bold text-success">${{ number_format($payment->amount, 2) }}</td>
 
-                                <!-- حساب المتبقي الصحيح بناءً على مجموع المدفوعات لسعر الدورة -->
                                 @php
                                     $coursePrice = $payment->courseClass->course->price ?? 0;
                                     
@@ -143,21 +150,27 @@
                                     @endif
                                 </td>
 
-                                <td>{{ \Carbon\Carbon::parse($payment->payment_date)->format('Y-m-d') }}</td>
+                                <td class="text-muted small fw-semibold">{{ \Carbon\Carbon::parse($payment->payment_date)->format('Y-m-d') }}</td>
                                 <td>
                                     <span class="badge bg-info text-dark">
                                         {{ $payment->payment_method == 'cash' ? 'نقداً' : ($payment->payment_method == 'card' ? 'بطاقة' : 'تحويل') }}
                                     </span>
                                 </td>
                                 <td>
+                                    <!-- طباعة -->
                                     <a href="{{ route('payments.print', $payment->id) }}" target="_blank" class="btn btn-sm btn-outline-primary me-1" title="طباعة سند">
                                         <i class="fa-solid fa-print"></i>
                                     </a>
-                                    <form action="{{ route('payments.destroy', $payment->id) }}" method="POST" class="d-inline" onsubmit="return confirm('هل أنت متأكد من حذف السند؟');">
+                                    <!-- تعديل -->
+                                    <a href="{{ route('payments.edit', $payment->id) }}" class="btn btn-sm btn-outline-warning me-1" title="تعديل السند">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </a>
+                                    <!-- نقل للأرشيف (Soft Delete) -->
+                                    <form action="{{ route('payments.destroy', $payment->id) }}" method="POST" class="d-inline" onsubmit="return confirm('هل أنت متأكد من نقل السند للأرشيف؟');">
                                         @csrf
                                         @method('DELETE')
-                                        <button class="btn btn-sm btn-outline-danger" title="حذف">
-                                            <i class="fa-solid fa-trash"></i>
+                                        <button class="btn btn-sm btn-outline-danger" title="نقل للأرشيف">
+                                            <i class="fa-solid fa-box-archive"></i>
                                         </button>
                                     </form>
                                 </td>
@@ -174,9 +187,11 @@
                 </table>
             </div>
 
-            <div class="p-3 bg-light border-top">
-                {{ $payments->links() }}
-            </div>
+            @if(method_exists($payments, 'links'))
+                <div class="p-3 bg-light border-top">
+                    {{ $payments->links() }}
+                </div>
+            @endif
         </div>
     </div>
 
@@ -253,6 +268,74 @@
         </div>
     </div>
 
+    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Real-Time Notifications Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            @if(session('success'))
+                showToastNotification('عملية ناجحة', "{{ session('success') }}");
+            @endif
+
+            const userId = "{{ auth()->id() }}";
+
+            if (userId && typeof window.Echo !== 'undefined') {
+                window.Echo.private(`App.Models.User.${userId}`)
+                    .notification((notification) => {
+                        console.log('🔔 تم استقبال إشعار لحظي:', notification);
+
+                        const title = notification.title || (notification.data && notification.data.title) || 'تحديث مالي';
+                        const message = notification.message || (notification.data && notification.data.message) || 'تم تسجيل عملية مالية جديدة';
+
+                        showToastNotification(title, message);
+                    });
+            }
+        });
+
+        function showToastNotification(title, message) {
+            const oldToast = document.getElementById('realtime-toast');
+            if (oldToast) oldToast.remove();
+
+            const toast = document.createElement('div');
+            toast.id = 'realtime-toast';
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 25px;
+                left: 25px;
+                background-color: #0f172a;
+                color: #ffffff;
+                padding: 15px 20px;
+                border-radius: 10px;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+                z-index: 999999;
+                border-right: 5px solid #16a34a;
+                direction: rtl;
+                font-family: inherit;
+                min-width: 290px;
+                max-width: 400px;
+                transition: all 0.4s ease;
+            `;
+
+            toast.innerHTML = `
+                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                    <span style="font-size: 20px; line-height: 1;">💵</span>
+                    <div style="flex-grow: 1;">
+                        <strong style="font-size: 14px; display: block; color: #ffffff; margin-bottom: 2px;">${title}</strong>
+                        <span style="font-size: 13px; color: #cbd5e1; display: block; line-height: 1.4;">${message}</span>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(10px)';
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+    </script>
 </body>
 </html>

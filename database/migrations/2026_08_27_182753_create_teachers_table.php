@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->string('phone');
             $table->string('specialization'); 
+            $table->softDeletes(); // يضيف عمود deleted_at للحذف المؤقت
             $table->timestamps();
         });
     }

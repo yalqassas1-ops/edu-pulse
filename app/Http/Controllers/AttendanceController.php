@@ -6,7 +6,12 @@ use App\Models\Attendance;
 use App\Models\CourseClass;
 use App\Models\Enrollment;
 use App\Models\Student;
+use App\Models\User;
+use App\Notifications\SystemNotification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Schema;
 
 class AttendanceController extends Controller
 {
@@ -26,9 +31,16 @@ class AttendanceController extends Controller
             $class = CourseClass::find($selectedClassId);
 
             if ($class) {
-                $enrollments = Enrollment::where('course_id', $class->course_id)
-                    ->with('student')
-                    ->get();
+                // جلب التسجيلات بسؤال قاعدة البيانات عن الشعبة والدورة لضمان إظهار الطلاب
+                $enrollments = Enrollment::where(function ($query) use ($class) {
+                    if (Schema::hasColumn('enrollments', 'course_class_id')) {
+                        $query->where('course_class_id', $class->id);
+                    }
+                    $query->orWhere('course_id', $class->id)
+                          ->orWhere('course_id', $class->course_id);
+                })
+                ->with('student')
+                ->get();
 
                 $students = $enrollments->map(fn($e) => $e->student)->filter()->unique('id');
             }
@@ -62,10 +74,16 @@ class AttendanceController extends Controller
             $class = CourseClass::find($selectedClassId);
 
             if ($class) {
-                // جلب جميع الطلاب المسجلين بهذه الدورة
-                $enrollments = Enrollment::where('course_id', $class->course_id)
-                    ->with('student')
-                    ->get();
+                // استعلام التقرير ليشمل الطلاب المضافين للشعبة
+                $enrollments = Enrollment::where(function ($query) use ($class) {
+                    if (Schema::hasColumn('enrollments', 'course_class_id')) {
+                        $query->where('course_class_id', $class->id);
+                    }
+                    $query->orWhere('course_id', $class->id)
+                          ->orWhere('course_id', $class->course_id);
+                })
+                ->with('student')
+                ->get();
 
                 $students = $enrollments->map(fn($e) => $e->student)->filter()->unique('id');
 
@@ -134,10 +152,28 @@ class AttendanceController extends Controller
                 ]
             );
 
+            // 🔔 إرسال الإشعار عند الحفظ المنفرد مع حماية النظام وتجسير الأخطاء
+            $class = CourseClass::with('course')->find($request->course_class_id);
+            $users = User::all();
+            if ($class && $users->isNotEmpty()) {
+                $classNum = $class->class_number ?? $class->id;
+                $courseTitle = $class->course->title ?? '';
+                $className = "شعبة (" . $classNum . ")" . ($courseTitle ? " - " . $courseTitle : "");
+
+                try {
+                    Notification::send($users, new SystemNotification(
+                        'تسجيل حضور طالب',
+                        'تم تسجيل حضور/غياب طالب في ' . $className . ' بتاريخ: ' . $request->date
+                    ));
+                } catch (\Exception $e) {
+                    Log::error('Broadcast Connection Failed on Single Attendance Store: ' . $e->getMessage());
+                }
+            }
+
             return redirect()->route('attendances.index', [
                 'course_class_id' => $request->course_class_id,
                 'date'            => $request->date,
-            ])->with('success', 'تم حفظ سجل الحضور بنجاح!');
+            ])->with('success', 'تم حفظ سجل الحضور بنجاح وإرسال الإشعار!');
         }
 
         // 2. معالجة الحفظ الجماعي للجدول
@@ -167,12 +203,30 @@ class AttendanceController extends Controller
                     ]
                 );
             }
+
+            // 🔔 إرسال الإشعار لمرة واحدة بعد حفظ حضور الجدول بالكامل مع حماية النظام وتجسير الأخطاء
+            $class = CourseClass::with('course')->find($classId);
+            $users = User::all();
+            if ($class && $users->isNotEmpty()) {
+                $classNum = $class->class_number ?? $class->id;
+                $courseTitle = $class->course->title ?? '';
+                $className = "شعبة (" . $classNum . ")" . ($courseTitle ? " - " . $courseTitle : "");
+
+                try {
+                    Notification::send($users, new SystemNotification(
+                        'حفظ جدول الحضور والغياب',
+                        'تم تسجيل جدول الحضور والغياب كاملاً لـ ' . $className . ' بتاريخ: ' . $date
+                    ));
+                } catch (\Exception $e) {
+                    Log::error('Broadcast Connection Failed on Bulk Attendance Store: ' . $e->getMessage());
+                }
+            }
         }
 
         return redirect()->route('attendances.index', [
             'course_class_id' => $classId,
             'date'            => $date,
-        ])->with('success', 'تم حفظ سجل الحضور والغياب بنجاح!');
+        ])->with('success', 'تم حفظ سجل الحضور والغياب بنجاح وإرسال الإشعار!');
     }
 
     /**
@@ -199,13 +253,28 @@ class AttendanceController extends Controller
             'date.required'   => 'يرجى تحديد التاريخ',
         ]);
 
-        $attendance = Attendance::findOrFail($id);
+        $attendance = Attendance::with(['student', 'courseClass.course'])->findOrFail($id);
 
         $attendance->update([
             'status' => $request->status,
             'date'   => $request->date,
             'notes'  => $request->notes ?? $attendance->notes,
         ]);
+
+        // 🔔 إرسال إشعار التحديث مع حماية النظام وتجسير الأخطاء
+        $users = User::all();
+        if ($users->isNotEmpty()) {
+            $studentName = $attendance->student->name ?? 'طالب';
+
+            try {
+                Notification::send($users, new SystemNotification(
+                    'تحديث سجل حضور',
+                    'تم تعديل سجل حضور الطالب/ة (' . $studentName . ') بتاريخ: ' . $attendance->date
+                ));
+            } catch (\Exception $e) {
+                Log::error('Broadcast Connection Failed on Attendance Update: ' . $e->getMessage());
+            }
+        }
 
         return redirect()->route('attendances.index', [
             'course_class_id' => $attendance->course_class_id,
@@ -218,11 +287,25 @@ class AttendanceController extends Controller
      */
     public function destroy($id)
     {
-        $attendance = Attendance::findOrFail($id);
+        $attendance = Attendance::with('student')->findOrFail($id);
         $classId = $attendance->course_class_id;
         $date = $attendance->date;
+        $studentName = $attendance->student->name ?? 'طالب';
 
         $attendance->delete();
+
+        // 🔔 إرسال إشعار الحذف مع حماية النظام وتجسير الأخطاء
+        $users = User::all();
+        if ($users->isNotEmpty()) {
+            try {
+                Notification::send($users, new SystemNotification(
+                    'حذف سجل حضور',
+                    'تم حذف سجل حضور الطالب/ة (' . $studentName . ') المؤرخ في: ' . $date
+                ));
+            } catch (\Exception $e) {
+                Log::error('Broadcast Connection Failed on Attendance Delete: ' . $e->getMessage());
+            }
+        }
 
         return redirect()->route('attendances.index', [
             'course_class_id' => $classId,

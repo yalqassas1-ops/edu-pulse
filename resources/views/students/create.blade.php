@@ -30,7 +30,7 @@
                 </div>
             @endif
 
-            <form action="{{ route('students.store') }}" method="POST">
+            <form action="{{ route('students.store') }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 <div class="mb-3">
                     <label class="form-label fw-bold">اسم الطالب</label>
@@ -52,12 +52,17 @@
                     <input type="date" name="birth_date" class="form-control" value="{{ old('birth_date', '2000-01-01') }}">
                 </div>
 
-                <div class="mb-4">
+                <div class="mb-3">
                     <label class="form-label fw-bold">الجنس</label>
                     <select name="gender" class="form-select" required>
                         <option value="male" {{ old('gender') == 'male' ? 'selected' : '' }}>ذكر</option>
                         <option value="female" {{ old('gender') == 'female' ? 'selected' : '' }}>أنثى</option>
                     </select>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold">صورة البروفايل / المرفق</label>
+                    <input type="file" name="avatar" class="form-control" accept="image/jpeg,image/png,image/jpg,application/pdf">
                 </div>
 
                 <div class="d-flex justify-content-between">

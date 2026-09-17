@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CourseClass extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'course_id',
@@ -26,7 +27,7 @@ class CourseClass extends Model
         'days' => 'array',
     ];
 
-    // --- العلاقات هنا ---
+    // --- العلاقات ---
 
     // 1. الدورة التدريبية
     public function course()

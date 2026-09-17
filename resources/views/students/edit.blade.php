@@ -29,7 +29,7 @@
                 </div>
             @endif
 
-            <form action="{{ route('students.update', $student->id) }}" method="POST">
+            <form action="{{ route('students.update', $student->id) }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 @method('PUT')
 
@@ -48,12 +48,26 @@
                     <input type="text" name="phone" class="form-control" value="{{ old('phone', $student->phone) }}">
                 </div>
 
-                <div class="mb-4">
+                <div class="mb-3">
                     <label class="form-label fw-bold">الجنس</label>
                     <select name="gender" class="form-select" required>
                         <option value="male" {{ old('gender', $student->gender) == 'male' ? 'selected' : '' }}>ذكر</option>
                         <option value="female" {{ old('gender', $student->gender) == 'female' ? 'selected' : '' }}>أنثى</option>
                     </select>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold">صورة البروفايل / المرفق</label>
+                    <input type="file" name="avatar" class="form-control mb-2" accept="image/jpeg,image/png,image/jpg,application/pdf">
+                    
+                    @if($student->avatar)
+                        <div class="mt-2">
+                            <small class="text-muted d-block mb-1">المرفق الحالي:</small>
+                            <a href="{{ Storage::url($student->avatar) }}" target="_blank" class="btn btn-sm btn-outline-info">
+                                <i class="fa-solid fa-paperclip me-1"></i> عرض المرفق الحالي
+                            </a>
+                        </div>
+                    @endif
                 </div>
 
                 <div class="d-flex justify-content-between gap-2">

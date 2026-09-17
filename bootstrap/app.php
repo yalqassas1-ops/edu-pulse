@@ -3,18 +3,20 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use App\Http\Middleware\RequestLoggerMiddleware; // 1. استدعاء الميدلوير
+use App\Http\Middleware\RequestLoggerMiddleware; // 1. استدعاء الـ Middleware
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
-        api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
+        channels: __DIR__.'/../routes/channels.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // 2. تفعيل الميدلوير لجميع الطلبات القادمة للمشروع
-        $middleware->append(RequestLoggerMiddleware::class);
+        // 2. تفعيل وتتبع الطلبات التلقائية لجميع صفحات الموقع
+        $middleware->web(append: [
+            RequestLoggerMiddleware::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
