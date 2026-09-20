@@ -142,6 +142,27 @@
             background-color: #1d4ed8;
         }
 
+        .register-footer {
+            margin-top: 1.5rem;
+            text-align: center;
+            font-size: 0.875rem;
+            color: #64748b;
+            border-top: 1px solid #f1f5f9;
+            padding-top: 1rem;
+        }
+
+        .register-footer a {
+            color: #2563eb;
+            font-weight: 600;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .register-footer a:hover {
+            color: #1d4ed8;
+            text-decoration: underline;
+        }
+
         .alert-danger {
             background-color: #fef2f2;
             border: 1px solid #fecaca;
@@ -205,6 +226,12 @@
             <i class="fa-solid fa-arrow-left"></i>
         </button>
     </form>
+
+    <!-- رابط إنشاء حساب جديد للزبائن الجدد -->
+    <div class="register-footer">
+        <span>ليس لديك حساب؟</span>
+        <a href="{{ route('register') }}">إنشاء حساب جديد</a>
+    </div>
 </div>
 
 </body>

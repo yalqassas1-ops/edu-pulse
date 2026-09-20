@@ -144,7 +144,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // ----------------------------------------------------
-// مسارات تسجيل الدخول والخروج (Auth Routes)
+// مسارات المصادقة وتسجيل الدخول وإنشاء الحساب (Auth Routes)
 // ----------------------------------------------------
 
 // مسار عرض صفحة تسجيل الدخول
@@ -152,6 +152,12 @@ Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 
 // مسار معالجة بيانات الدخول
 Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
+
+// مسار عرض صفحة إنشاء حساب جديد للزبائن
+Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
+
+// مسار معالجة بيانات إنشاء الحساب الجديد
+Route::post('/register', [AuthController::class, 'register'])->name('register.submit');
 
 // مسار تسجيل الخروج
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');

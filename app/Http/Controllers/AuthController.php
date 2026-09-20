@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Hash;
 use Exception;
+use App\Models\User;
 use App\Notifications\LoginSuccessNotification;
 
 class AuthController extends Controller
@@ -88,6 +90,69 @@ class AuthController extends Controller
             return back()->withErrors([
                 'email' => 'حدث خطأ غير متوقع في النظام، يرجى المحاولة لاحقاً.',
             ])->onlyInput('email');
+        }
+    }
+
+    /**
+     * عرض صفحة إنشاء حساب جديد (الخاصة بالزبائن)
+     */
+    public function showRegisterForm()
+    {
+        return view('auth.register');
+    }
+
+    /**
+     * معالجة بيانات إنشاء حساب جديد
+     */
+    public function register(Request $request)
+    {
+        // 1. التحقق من صحة المدخلات
+        $request->validate([
+            'name'     => ['required', 'string', 'max:255'],
+            'email'    => ['required', 'string', 'email', 'max:255', 'unique:users'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ], [
+            'name.required'      => 'الرجاء إدخال الاسم كامل.',
+            'email.required'     => 'الرجاء إدخال البريد الإلكتروني.',
+            'email.email'        => 'صيغة البريد الإلكتروني غير صحيحة.',
+            'email.unique'       => 'هذا البريد الإلكتروني مُسجل مسبقاً.',
+            'password.required'  => 'الرجاء إدخال كلمة المرور.',
+            'password.min'       => 'كلمة المرور يجب أن لا تقل عن 8 خانات.',
+            'password.confirmed' => 'تأكيد كلمة المرور غير متطابق.',
+        ]);
+
+        try {
+            // 2. إنشاء المستخدم الجديد وتشفير كلمة المرور
+            $user = User::create([
+                'name'     => $request->name,
+                'email'    => $request->email,
+                'password' => Hash::make($request->password),
+            ]);
+
+            // 🟢 تسجيل عملية إنشاء الحساب (INFO Log)
+            Log::info('تم إنشاء حساب جديد بنجاح', [
+                'user_id' => $user->id,
+                'email'   => $user->email,
+                'ip'      => $request->ip(),
+            ]);
+
+            // 3. تسجيل دخول المستخدم آلياً بعد الإنشاء مباشرة
+            Auth::login($user);
+            $request->session()->regenerate();
+
+            return redirect()->route('dashboard')->with('success', 'تم إنشاء الحساب وتسجيل الدخول بنجاح!');
+
+        } catch (Exception $e) {
+            // 🔴 تسجيل وقوع خطأ أثناء إنشاء الحساب
+            Log::error('حدث خطأ أثناء عملية إنشاء الحساب', [
+                'error_message' => $e->getMessage(),
+                'email'         => $request->email,
+                'ip'            => $request->ip(),
+            ]);
+
+            return back()->withErrors([
+                'email' => 'حدث خطأ أثناء إنشاء الحساب، يرجى المحاولة لاحقاً.',
+            ])->withInput($request->except('password', 'password_confirmation'));
         }
     }
 
