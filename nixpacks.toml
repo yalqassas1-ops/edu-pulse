@@ -1,0 +1,6 @@
+[providers]
+providers = ["php"]
+
+[phases.setup]
+aptPkgs = ["..."]
+nixPkgs = ["php82Extensions.pdo_mysql", "php82Extensions.pdo", "php82Extensions.mysqli", "php82Extensions.mbstring"]
